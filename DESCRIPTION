@@ -1,0 +1,13 @@
+Package: fosr.vs
+Title: An implementation of Function-on-Scalar Regression with Variable Selection
+Version: 0.1
+Authors@R: c(
+	person("Yakuan", "Chen", , "yc2641@cumc.columbia.edu", role = c("aut", "cre")),
+	person("Jeff", "Goldsmith", , "ajg2202@cumc.columbia.edu", role = "aut"))
+Description: Implementation of an iterative algorithm for function-on-scalar regression with variable selection
+	by alternatively updating the coefficients and covariance structure. Variable selection is performed at
+	the group level. Covariance matrix estimate is obtained by performing FPCA on the residual matrix.
+Depends: R (>= 2.14.0)
+Imports: grpreg, ggplot2, splines, refund
+License: GPL (>=2)
+LazyData: true

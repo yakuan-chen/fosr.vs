@@ -1,0 +1,5 @@
+library(devtools)#
+#
+setwd("/Users/yakuan/Documents/thesis/fosr.vs")#
+roxygen2::roxygenise()#
+document()
