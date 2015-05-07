@@ -11,3 +11,5 @@ Depends: R (>= 2.14.0)
 Imports: grpreg, ggplot2, splines, refund
 License: GPL (>=2)
 LazyData: true
+Suggests: knitr
+VignetteBuilder: knitr

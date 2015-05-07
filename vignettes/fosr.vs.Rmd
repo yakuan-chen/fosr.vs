@@ -4,7 +4,7 @@ author: "Yakuan Chen and Jeff Goldsmith"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{CrossSectional}
+  %\VignetteIndexEntry{fosr.vs}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
