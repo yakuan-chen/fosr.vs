@@ -1,0 +1,15 @@
+base
+BayesFoSR
+datasets
+fda
+fosr.vs
+ggplot2
+graphics
+grDevices
+MASS
+Matrix
+methods
+refund
+splines
+stats
+utils

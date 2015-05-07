@@ -1,0 +1,137 @@
+---
+title: "Variable Selection in Function-on-Scalar Regression"
+author: "Yakuan Chen and Jeff Goldsmith"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{CrossSectional}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+This guide illustrates the use of `fosr.vs()` to conduct variable selection in the context of linear function-on-scalar regression models. We compare the results to two other methods for function-on-scalar regression without variable selection.
+
+## Simulated data
+
+We simulate 100 functional responses with correlated errors according to the linear function-on-scalar regression model. Three non-zero coefficient functions are used (a constant intercept, a sine curve, and a cosine curve) together with 17 zero coefficient functions; scalar predictors are generated from a standard normal distribution. Correlated errors are introduced using functional principal components with two basis functions (a sine and cosine of periods different than the coefficient functions) and subject-specific loadings are generated from mean-zero normal distributions with variance 3 and 1. Finally, uncorrelated measurement error is added to all curve. The figure below shows this observed data.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(fosr.vs)
+library(refund)
+library(BayesFoSR)
+library(ggplot2)
+library(MASS)
+
+###############################################################
+## set simulation design elements
+###############################################################
+
+set.seed(100)
+
+I = 100
+p = 20
+D = 50
+grid = seq(0, 1, length = D)
+
+## coefficient functions
+beta.true = matrix(0, p, D)
+beta.true[1,] = sin(2*grid*pi)
+beta.true[2,] = cos(2*grid*pi)
+beta.true[3,] = 2
+
+## basis functions for correlated errors
+psi.true = matrix(NA, 2, D)
+psi.true[1,] = sin(4*grid*pi)
+psi.true[2,] = cos(4*grid*pi)
+lambda = c(3,1)
+
+## predictors and PC scores
+X = matrix(rnorm(I*p), I, p); X[,1] = 1
+C = cbind(rnorm(I, mean = 0, sd = lambda[1]), rnorm(I, mean = 0, sd = lambda[2]))
+
+## fixed effects, PC effects, uncorrelated errors
+fixef = X%*%beta.true
+pcaef = C %*% psi.true
+error = matrix(rnorm(I*D), I, D)
+
+Yi.true = fixef
+Yi.pca = fixef + pcaef
+Yi.obs = fixef + pcaef + error
+
+data = as.data.frame(X)
+data$Y = Yi.obs
+
+## response
+Yi.obs = fixef + pcaef + error
+```
+
+
+```{r, echo = FALSE, fig.align='center', fig.width=6}
+## observed data
+obs.data = cbind(as.vector(t(Yi.obs)), rep(1:I, each = D), rep(grid, I))
+obs.data = as.data.frame(obs.data)
+colnames(obs.data) = c("y", "curve", "grid")
+
+ggplot(obs.data, aes(x = grid, y = y, group = curve)) + geom_path(alpha = .3) +
+  theme_bw() + labs(x = "Grid", y = "Observed Data")
+```
+
+## Model Fitting
+
+There are several tools for fitting the function-on-scalar regression model. We first fit this model using `fosr.vs` to conduct variable selection. Other options are `refund::pffr()` and `BayesFoSR::bayes_fosr()`, which do not induce sparsity and are used as a point of reference. All methods are used below.
+
+```{r, echo = TRUE, cache = TRUE}
+fit.fosr.vs = fosr.vs(Y~0+X, data = data, method="grMCP")
+
+fit.vb = bayes_fosr(Y~0+X, data = data, Kt = 10, est.method = "VB", cov.method = "FPCA")
+
+Y = data$Y
+for(i in 1:20){
+  assign(paste0("x", i), data[,i])
+}
+fit.pffr = pffr(Y ~ 0 + x1 + x2 + x3 + x4 + x5 + x6 + x7+ x8 + x9 + x10 +
+         x11 + x12 + x13 + x14 + x15 + x16 + x17+ x18 + x19 + x20,
+         bs.yindex = list(bs = "ps", k = 10, m = c(2, 1)))
+```
+
+## Model comparisons
+
+Below we plot the estimates of nonzero coefficient functions from each of the methods. Methods are broadly similar in estimating these non-zero coefficient functions, although estimates from `fosr.vs()` are not affected by the estimation of zero coefficients.
+
+```{r, echo = FALSE, results='hide', fig.align='center', fig.width=6}
+coefs.mcp = fit.fosr.vs$coefficients
+coefs.vb = fit.vb$beta.pm
+coefs.pffr = matrix(NA, nrow = p, ncol = D)
+for(i in 1:p){
+  coefs.pffr[i,] = coef(fit.pffr, n1 = D)$smterms[[paste0("x", i, "(yindex)")]]$value
+}
+
+plot.dat = data.frame(est = c(as.vector(t(beta.true[1:3,])), as.vector(t(coefs.mcp[1:3,])), as.vector(t(coefs.pffr[1:3,])), as.vector(t(coefs.vb[1:3,]))),
+                      grid = rep(grid, 3*4),
+                      curve = rep(rep(1:3, each = D), 4),
+                      Method = rep(c("Truth", "VarSelect", "PFFR", "VB"), each = 3*D))
+
+ggplot(plot.dat, aes(x = grid, y = est, group = Method, color = Method)) + geom_path(alpha = .5) + 
+  theme_bw() + labs(x = "Grid", y = "Beta") + facet_grid(.~curve)
+```
+
+Next we plot the estimates of zero coefficient functions. In this example `fosr.vs()` correctly estimates all zero coefficients as zero, while `pffr()` and `bayes_fosr()` often estimate coefficients that are very different from zero.
+
+```{r, echo = FALSE, fig.align='center', fig.width=4}
+plot.dat = data.frame(est = c(as.vector(t(beta.true[4:20,])), as.vector(t(coefs.mcp[4:20,])), as.vector(t(coefs.pffr[4:20,])), as.vector(t(coefs.vb[4:20,]))),
+                      grid = rep(grid, 17*4),
+                      curve = rep(1:(17*4), each = D),
+                      Method = rep(c("Truth", "VarSelect", "PFFR", "VB"), each = 17*D))
+
+ggplot(plot.dat, aes(x = grid, y = est, group = curve, color = Method)) + geom_path(alpha = .5) + 
+  theme_bw() + labs(x = "Grid", y = "Beta")
+```
+
+
+<!-- ############################################ -->
+<!-- ############################################ -->
+<!-- ############################################ -->
+<!-- ############################################ -->
+<!-- ############################################ -->
+<!-- ############################################ -->
